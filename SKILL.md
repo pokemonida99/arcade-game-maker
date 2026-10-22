@@ -7,7 +7,7 @@ description: 街機像素遊戲工坊：做 90 年代街機風格的網頁小遊
 
 做過《紅分子 亮車快打》（快打旋風打車關反過來：把髒車打亮）與《讓子彈飛：鵝城快打》（橫向清版）累積的完整做法。新遊戲照 0 → 7 的順序做；每一步的細節在 `references/`，工具在 `scripts/`，可以直接改的可玩範本在 `template/`（沙包練習場）。
 
-本 skill 的位置：`~/.claude/skills/arcade-game-maker/`（連到 `/Users/hermes/Public/0720/arcade-game-maker/`，GitHub：pokemonida99/arcade-game-maker）。下面用 `<skill>` 代表這個資料夾。
+本 skill 的位置：`~/.claude/skills/arcade-game-maker/`（連到 `~/claude-tools/skills/arcade-game-maker/`，GitHub：pokemonida99/arcade-game-maker）。下面用 `<skill>` 代表這個資料夾。
 
 ## 0. 開工前先問清楚（不要猜）
 - 題材與玩法：格鬥／獎勵關（打物件）／橫向清版／騎乘關？幾關？試玩版要做到哪？
@@ -51,4 +51,4 @@ GitHub 公開 repo ＋ Pages（push main 即部署）。每次改 js：`index.ht
 ## 範例
 - 可玩範本：`template/`（線上：https://pokemonida99.github.io/arcade-game-maker/template/ ）
 - 作品展示頁：https://pokemonida99.github.io/arcade-game-maker/
-- 完整作品原始碼：`/Users/hermes/Public/0720/hjaec-fighter/`（格鬥／獎勵關）、`/Users/hermes/Public/0720/bullets-fly/`（橫向清版、騎馬關、劇情過場）
+- 完整作品原始碼：GitHub pokemonida99/hjaec-fighter（格鬥／獎勵關；本機已刪，要看先 clone）、pokemonida99/bullets-fly（橫向清版、騎馬關、劇情過場）

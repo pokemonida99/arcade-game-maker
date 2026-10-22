@@ -34,4 +34,4 @@ python3 <skill>/scripts/stage_art.py
 - 頭像：去白底（只從上緣和兩側上半部往內填，不挖掉碰到底邊的白襯衫）→ 64／112。
 
 ## 官方商品照
-官網照片通常是含價格、促銷字的廣告圖：只裁商品本體（瓶身）、做成有框的商品卡，不要放價格（特價過期遊戲裡還寫舊價）。參考 hjaec-fighter/tools/products.py。
+官網照片通常是含價格、促銷字的廣告圖：只裁商品本體（瓶身）、做成有框的商品卡，不要放價格（特價過期遊戲裡還寫舊價）。參考 GitHub pokemonida99/hjaec-fighter 的 tools/products.py。
