@@ -1,0 +1,249 @@
+# 切角色動作表：GPT 畫的「洋紅底 4×2 格」動作表 → 一格一格去背、對齊腳底、縮成遊戲尺寸，打包成 js/sprite_data.js
+# 設定都在專案根目錄的 slice_config.json（範例見 skill 的 template/slice_config.json）
+# 用法（在專案根目錄執行）：python3 <skill>/scripts/slice.py [預覽圖.png]
+# 輸出：window.SPRITE_DATA = { 角色id: { img: dataURL, frames: { 動作名: [x, y, w, h, 腳底x] } } }
+import sys, os, io, base64, json
+from PIL import Image, ImageChops, ImageFilter
+
+CFG = json.load(open(os.environ.get('SLICE_CONFIG', 'slice_config.json'), encoding='utf-8'))
+ART = CFG.get('art_dir', 'work/art')                 # GPT 原圖放這裡：<角色>_<表名>.png
+OUT = CFG.get('out', 'js/sprite_data.js')
+TARGET_H = CFG.get('target_h', 74)                   # 站姿（idle0）高度，遊戲像素
+TARGET_BY = CFG.get('target_by', {})                 # 個別角色高度
+SHEET_SETS = CFG['sheet_sets']                       # 表組：{ "hero": { "A": [8 個動作名], ... } }
+CHARS = {cid: SHEET_SETS[s] for cid, s in CFG['chars'].items()}
+AIR = set(CFG.get('air', []))                        # 用重心對齊的動作（跳、走、跑、躺）
+AIR_BY = {k: set(v) for k, v in CFG.get('air_by', {}).items()}
+STRICT = {tuple(x) for x in CFG.get('strict', [])}   # 只留本體（道具另外畫成飛道具）
+KEEP_LARGEST = set(CFG.get('keep_largest', []))      # 只留最大一塊
+ORDER_FIX = CFG.get('order_fix', {})                 # GPT 排序跑掉時：{ "kuri_C": [0,1,2,...] }
+
+
+def bg_mask_loose(im):
+    # 只用來分格：門檻寬，姿勢之間的洋紅毛邊不會把兩格黏在一起
+    r, g, b = im.split()
+    return ImageChops.multiply(ImageChops.multiply(r.point(lambda v: 255 if v > 130 else 0), b.point(lambda v: 255 if v > 130 else 0)),
+                               g.point(lambda v: 255 if v < 120 else 0))
+
+
+def bg_mask(im):
+    r, g, b = im.split()
+    # 門檻收緊：太寬會把 VIVI 粉紅西裝的像素也當成洋紅底挖掉
+    m = ImageChops.multiply(ImageChops.multiply(r.point(lambda v: 255 if v > 190 else 0), b.point(lambda v: 255 if v > 190 else 0)),
+                            g.point(lambda v: 255 if v < 110 else 0))
+    return m   # 255 = 背景
+
+
+def components(mask, step=4):
+    w, h = mask.size
+    sm = mask.resize((w // step, h // step), Image.BOX).point(lambda v: 255 if v > 20 else 0).filter(ImageFilter.MaxFilter(5))
+    sw, sh = sm.size
+    px = sm.load(); seen = bytearray(sw * sh); comps = []
+    for y in range(sh):
+        for x in range(sw):
+            if px[x, y] and not seen[y * sw + x]:
+                st = [(x, y)]; seen[y * sw + x] = 1; pts = []
+                while st:
+                    cx, cy = st.pop(); pts.append((cx, cy))
+                    for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                        if 0 <= nx < sw and 0 <= ny < sh and px[nx, ny] and not seen[ny * sw + nx]:
+                            seen[ny * sw + nx] = 1; st.append((nx, ny))
+                xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+                comps.append({'n': len(pts), 'box': (min(xs) * step, min(ys) * step, (max(xs) + 1) * step, (max(ys) + 1) * step),
+                              'pts': set(pts), 'cx': sum(xs) / len(xs) * step, 'cy': sum(ys) / len(ys) * step})
+    comps.sort(key=lambda c: -c['n'])
+    if not comps: return [], step
+    big = comps[0]['n']
+    comps = [c for c in comps if c['n'] > big * 0.12]
+    return comps, step
+
+
+def grid_comps(fg, names, step=4, cols=4, rows=2):
+    # 備用：格子太擠、自動找不到 8 格時，直接用 4×2 格子切
+    w, h = fg.size
+    sm = fg.resize((w // step, h // step), Image.BOX).point(lambda v: 255 if v > 20 else 0)
+    sw, sh = sm.size; px = sm.load(); comps = []
+    for r in range(rows):
+        for c in range(cols):
+            x0, x1 = c * sw // cols, (c + 1) * sw // cols; y0, y1 = r * sh // rows, (r + 1) * sh // rows
+            pts = {(x, y) for y in range(y0, y1) for x in range(x0, x1) if px[x, y]}
+            if not pts: continue
+            xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+            comps.append({'n': len(pts), 'box': (min(xs) * step, min(ys) * step, (max(xs) + 1) * step, (max(ys) + 1) * step),
+                          'pts': pts, 'cx': sum(xs) / len(xs) * step, 'cy': sum(ys) / len(ys) * step})
+    return comps
+
+
+def cell_comps(fg, step=4, cols=4, rows=2):
+    # 備用切法：先找所有連在一起的塊，再依「中心點落在哪一格」分組——跨過格線的姿勢（例如躺平）不會被切斷
+    w, h = fg.size
+    sm = fg.resize((w // step, h // step), Image.BOX).point(lambda v: 255 if v > 20 else 0)
+    sw, sh = sm.size; px = sm.load(); seen = bytearray(sw * sh); cells = {}
+    for y in range(sh):
+        for x in range(sw):
+            if px[x, y] and not seen[y * sw + x]:
+                st = [(x, y)]; seen[y * sw + x] = 1; pts = []
+                while st:
+                    cx, cy = st.pop(); pts.append((cx, cy))
+                    for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                        if 0 <= nx < sw and 0 <= ny < sh and px[nx, ny] and not seen[ny * sw + nx]:
+                            seen[ny * sw + nx] = 1; st.append((nx, ny))
+                if len(pts) < 4: continue
+                mx = sum(p[0] for p in pts) / len(pts); my = sum(p[1] for p in pts) / len(pts)
+                key = (min(rows - 1, int(my * rows / sh)), min(cols - 1, int(mx * cols / sw)))
+                cells.setdefault(key, []).extend(pts)
+    comps = []
+    for (r, c) in sorted(cells):
+        pts = cells[(r, c)]; xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+        comps.append({'n': len(pts), 'box': (min(xs) * step, min(ys) * step, (max(xs) + 1) * step, (max(ys) + 1) * step),
+                      'pts': set(pts), 'cx': sum(xs) / len(xs) * step, 'cy': sum(ys) / len(ys) * step})
+    return comps
+
+
+def order(comps):
+    ys = sorted(c['cy'] for c in comps)
+    mid = (ys[0] + ys[-1]) / 2
+    top = sorted([c for c in comps if c['cy'] < mid], key=lambda c: c['cx'])
+    bot = sorted([c for c in comps if c['cy'] >= mid], key=lambda c: c['cx'])
+    return top + bot
+
+
+def cut(im, mask, c, step):
+    x0, y0, x1, y1 = c['box']
+    x0, y0 = max(0, x0 - step), max(0, y0 - step); x1, y1 = min(im.width, x1 + step), min(im.height, y1 + step)
+    fr = im.crop((x0, y0, x1, y1)).convert('RGBA')
+    bm = mask.crop((x0, y0, x1, y1))
+    # 只留這個元件的範圍（避免切到隔壁格）
+    sw, sh = (x1 - x0) // step + 2, (y1 - y0) // step + 2
+    small = Image.new('L', (sw, sh), 0); sp = small.load()
+    for (sx, sy) in c['pts']:
+        X, Y = sx - x0 // step, sy - y0 // step
+        if 0 <= X < sw and 0 <= Y < sh: sp[X, Y] = 255
+    small = small.filter(ImageFilter.MaxFilter(3))
+    own = Image.new('L', fr.size, 0)
+    own.paste(small.resize((sw * step, sh * step), Image.NEAREST), ((x0 // step) * step - x0, (y0 // step) * step - y0))
+    alpha = ImageChops.multiply(ImageChops.invert(bm), own)
+    fr.putalpha(alpha)
+    bb = fr.getbbox()
+    return fr.crop(bb) if bb else fr
+
+
+def keep_largest(fr):
+    a = fr.getchannel('A'); w, h = a.size
+    comps, step = components(a.point(lambda v: 255 if v > 0 else 0), step=3)
+    if len(comps) <= 1: return fr
+    x0, y0, x1, y1 = comps[0]['box']
+    keep = Image.new('L', (w, h), 0)
+    sm = Image.new('L', (w // step + 2, h // step + 2), 0); p = sm.load()
+    for (sx, sy) in comps[0]['pts']: p[sx, sy] = 255
+    sm = sm.filter(ImageFilter.MaxFilter(3)).resize(((w // step + 2) * step, (h // step + 2) * step), Image.NEAREST).crop((0, 0, w, h))
+    out = fr.copy(); out.putalpha(ImageChops.multiply(a, sm))
+    bb = out.getbbox(); return out.crop(bb) if bb else out
+
+
+def clean(sm, gap=5):
+    # 只留本體＋貼著本體的部分（槍口火光、聲波、煙）；去掉跟本體分開的碎片
+    # （格子切法切進來的鄰格碎塊、GPT 畫進格子裡的障礙物、丟出去的道具——遊戲另外畫飛道具）
+    a = sm.getchannel('A'); w, h = a.size; px = a.load(); seen = set(); cs = []
+    for y in range(h):
+        for x in range(w):
+            if px[x, y] and (x, y) not in seen:
+                st = [(x, y)]; seen.add((x, y)); pts = []
+                while st:
+                    cx, cy = st.pop(); pts.append((cx, cy))
+                    for dx in (-1, 0, 1):
+                        for dy in (-1, 0, 1):
+                            nx, ny = cx + dx, cy + dy
+                            if 0 <= nx < w and 0 <= ny < h and px[nx, ny] and (nx, ny) not in seen: seen.add((nx, ny)); st.append((nx, ny))
+                cs.append(pts)
+    if len(cs) <= 1: return sm
+    cs.sort(key=len, reverse=True)
+    main = Image.new('L', (w, h), 0); mp = main.load()
+    for (x, y) in cs[0]: mp[x, y] = 255
+    near = main.filter(ImageFilter.MaxFilter(gap * 2 + 1)).load()
+    keep = main.copy(); kp = keep.load()
+    for c in cs[1:]:
+        if any(near[x, y] for (x, y) in c[::3]):
+            for (x, y) in c: kp[x, y] = 255
+    out = sm.copy(); out.putalpha(ImageChops.multiply(a, keep))
+    bb = out.getbbox(); return out.crop(bb) if bb else out
+
+
+def shrink(fr, s):
+    w, h = max(1, round(fr.width * s)), max(1, round(fr.height * s))
+    sm = fr.resize((w, h), Image.LANCZOS)
+    px = sm.load()
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a < 140 or (r > 190 and b > 190 and g < 110 and abs(r - b) < 60):   # 去掉洋紅毛邊
+                px[x, y] = (0, 0, 0, 0)
+            else:
+                px[x, y] = (r, g, b, 255)
+    bb = sm.getbbox()
+    return sm.crop(bb) if bb else sm
+
+
+def anchor_x(fr, air):
+    w, h = fr.size; px = fr.load()
+    if air:
+        xs = [x for y in range(h) for x in range(w) if px[x, y][3]]
+        return round(sum(xs) / len(xs)) if xs else w // 2
+    rows = max(2, h // 12)
+    xs = [x for y in range(h - rows, h) for x in range(w) if px[x, y][3]]
+    if not xs: return w // 2
+    xs.sort()
+    return xs[len(xs) // 2]
+
+
+def main():
+    data = {}; previews = []
+    for cid, SHEETS in CHARS.items():
+        raw = {}
+        for sh, names in SHEETS.items():
+            path = f'{ART}/{cid}_{sh}.png'
+            if not os.path.exists(path): continue
+            im = Image.open(path).convert('RGB')
+            mask = bg_mask(im)
+            comps, step = components(ImageChops.invert(bg_mask_loose(im)))
+            comps = order(comps) if comps else comps
+            if len(comps) != len(names):
+                comps = cell_comps(ImageChops.invert(mask))
+                if len(comps) != len(names): comps = grid_comps(ImageChops.invert(mask), names)
+                print(f'   {cid}_{sh}: 自動切格數量不對，改用依格分組（{len(comps)} 格）')
+            fix = ORDER_FIX.get(f'{cid}_{sh}')
+            if fix: comps = [comps[i] for i in fix]
+            if len(comps) != len(names): print(f'!! {cid}_{sh}: 找到 {len(comps)} 格（應為 {len(names)}）')
+            for n, c in zip(names, comps):
+                raw[n] = cut(im, mask, c, step)
+                if n in KEEP_LARGEST: raw[n] = keep_largest(raw[n])
+        if 'idle0' not in raw: print('-- 跳過（沒有 idle0）', cid); continue
+        s = TARGET_BY.get(cid, TARGET_H) / raw['idle0'].height
+        frames = {}
+        for n, fr in raw.items():
+            sm = clean(shrink(fr, s), 1 if (cid, n) in STRICT else 5)
+            frames[n] = (sm, anchor_x(sm, n in AIR or n in AIR_BY.get(cid, ())))
+        W = sum(f.width + 2 for f, _ in frames.values()); H = max(f.height for f, _ in frames.values())
+        atlas = Image.new('RGBA', (W, H), (0, 0, 0, 0)); x = 0; meta = {}
+        for n, (f, ax) in frames.items():
+            atlas.paste(f, (x, 0)); meta[n] = [x, 0, f.width, f.height, ax]; x += f.width + 2
+        b = io.BytesIO(); atlas.quantize(colors=255, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(b, 'PNG', optimize=True)
+        data[cid] = {'img': 'data:image/png;base64,' + base64.b64encode(b.getvalue()).decode(), 'frames': meta}
+        pv = Image.new('RGBA', (W * 3, (H + 6) * 3), (60, 60, 80, 255))
+        big = atlas.resize((W * 3, H * 3), Image.NEAREST); pv.paste(big, (0, 0), big); pp = pv.load()
+        for n, (fx, fy, fw, fh, ax) in meta.items():
+            for d in range(-6, 7):
+                X = (fx + ax) * 3 + d
+                if 0 <= X < pv.width: pp[X, fh * 3 + 3] = (255, 60, 60, 255)   # 紅線＝腳底對齊點
+        previews.append(pv)
+        print(cid, 'scale', round(s, 3), 'atlas', W, H, 'frames', len(meta))
+    os.makedirs(os.path.dirname(OUT) or '.', exist_ok=True)
+    open(OUT, 'w').write('// 由 slice.py 產生，勿手改\nwindow.SPRITE_DATA = ' + json.dumps(data) + ';\n')
+    if len(sys.argv) > 1 and previews:
+        PW = max(p.width for p in previews); PH = sum(p.height for p in previews)
+        out = Image.new('RGBA', (PW, PH), (40, 40, 50, 255)); y = 0
+        for p in previews: out.paste(p, (0, y)); y += p.height
+        out.save(sys.argv[1])
+
+
+main()

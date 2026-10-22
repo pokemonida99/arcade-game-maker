@@ -1,0 +1,8 @@
+{
+  "_說明": "stage_art.py 的設定：背景（裁 16:9 縮成畫面大小）、道具（洋紅底去背，指定寬度）、頭像（白底去背，64 與 112 兩種尺寸）",
+  "screen": [384, 216],
+  "out": "js/art_data.js",
+  "backgrounds": { "garage": "work/art/bg_stage1.png" },
+  "props": { "car": { "src": "work/art/prop_car.png", "width": 240 } },
+  "portraits": { "hero": "work/art/p_hero.png" }
+}

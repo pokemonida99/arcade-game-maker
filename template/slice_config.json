@@ -1,0 +1,21 @@
+{
+  "_說明": "slice.py 的設定：每個角色用哪一組動作表、每張表 8 格的動作名稱。GPT 原圖放 work/art/<角色>_<表名>.png",
+  "art_dir": "work/art",
+  "out": "js/sprite_data.js",
+  "target_h": 74,
+  "target_by": { "hero": 74 },
+  "sheet_sets": {
+    "hero": {
+      "A": ["idle0", "idle1", "walk0", "walk1", "walk2", "walk3", "crouch", "jump"],
+      "B": ["punch0", "punch1", "kick0", "kick1", "cpunch", "ckick1", "jkick", "win0"],
+      "C": ["throw0", "throw1", "throw2", "spin", "spinK", "rush0", "rush1", "hurt"],
+      "D": ["walk0", "walk1", "walk2", "walk3", "run0", "run1", "run2", "run3"]
+    }
+  },
+  "chars": { "hero": "hero" },
+  "air": ["jump", "jkick", "spin", "spinK", "walk0", "walk1", "walk2", "walk3", "run0", "run1", "run2", "run3"],
+  "air_by": {},
+  "strict": [],
+  "keep_largest": [],
+  "order_fix": {}
+}

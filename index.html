@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>街機像素遊戲工坊</title>
+<meta name="description" content="arcade-game-maker：做 90 年代街機風格網頁小遊戲的 Claude Code skill。作品、可玩範本與製作流程。">
+<style>
+  @font-face { font-family: 'Cubic'; src: url('template/fonts/Cubic_11.woff2') format('woff2'); font-display: swap; }
+  :root { --bg: #0b0306; --panel: #170609; --line: #5a1018; --red: #e0262f; --gold: #ffd040; --text: #ece6e8; --dim: #a8979b; --blue: #9ad8ff; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.75 'Cubic', 'PingFang TC', 'Noto Sans TC', sans-serif;
+    background-image: repeating-linear-gradient(135deg, rgba(255,40,60,.035) 0 16px, transparent 16px 32px); }
+  a { color: var(--blue); }
+  img { max-width: 100%; display: block; image-rendering: pixelated; border-radius: 4px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 48px 0 28px; text-align: center; border-bottom: 3px solid var(--red); background: linear-gradient(#2a0008, transparent); }
+  header .kicker { color: var(--red); letter-spacing: 4px; font-size: 14px; }
+  h1 { margin: 6px 0 8px; font-size: clamp(34px, 8vw, 64px); line-height: 1.1; color: var(--gold);
+    text-shadow: 0 4px 0 #5a0000, 0 0 24px rgba(255,140,20,.35); }
+  header p { margin: 0 auto; max-width: 640px; color: var(--dim); }
+  .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+  .btn { display: inline-block; padding: 8px 18px; border: 2px solid var(--gold); color: var(--gold); text-decoration: none; border-radius: 4px; background: rgba(0,0,0,.4); }
+  .btn.red { border-color: var(--red); color: #fff; background: var(--red); }
+  section { padding: 36px 0 8px; }
+  h2 { font-size: 24px; color: var(--gold); margin: 0 0 4px; }
+  h2 small { font-size: 14px; color: var(--dim); margin-left: 8px; }
+  .sub { color: var(--dim); margin: 0 0 18px; }
+  .game { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+  .game h3 { margin: 0; font-size: 20px; color: #fff; }
+  .game .tags { color: var(--red); font-size: 13px; }
+  .game p { margin: 6px 0 12px; color: var(--dim); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .grid figure { margin: 0; }
+  .grid figcaption { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .steps { counter-reset: s; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
+  .step b { color: var(--gold); }
+  .step b::before { counter-increment: s; content: counter(s, decimal) '. '; color: var(--red); }
+  .step span { display: block; font-size: 14px; color: var(--dim); }
+  .pipe { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin-top: 16px; }
+  .pipe .arrow { color: var(--gold); font-size: 28px; text-align: center; }
+  pre { background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 13px; line-height: 1.6; color: #e0e0e8; }
+  ul.check { padding-left: 20px; color: var(--dim); }
+  ul.check li::marker { color: var(--red); }
+  footer { margin: 40px 0 0; padding: 20px 0 32px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13px; text-align: center; }
+  @media (max-width: 640px) { .pipe { grid-template-columns: 1fr; } .pipe .arrow { transform: rotate(90deg); } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="kicker">CLAUDE CODE SKILL ・ ARCADE-GAME-MAKER</div>
+    <h1>街機像素遊戲工坊</h1>
+    <p>用 GPT 畫逐格動作圖與像素背景、程式切格對齊、合成配樂、手機觸控，做出 90 年代街機風格的網頁小遊戲。下面是做出來的作品、可以直接玩的範本，以及整套流程。</p>
+    <div class="btns">
+      <a class="btn red" href="template/">玩範本：沙包練習場</a>
+      <a class="btn" href="https://github.com/pokemonida99/arcade-game-maker">GitHub 原始碼</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>作品<small>用這套流程做的遊戲</small></h2>
+    <p class="sub">點標題可以直接玩，手機、電腦都可以。</p>
+
+    <div class="game">
+      <h3><a href="https://pokemonida99.github.io/hjaec-fighter/">紅分子 亮車快打</a></h3>
+      <div class="tags">格鬥 ・ 獎勵關 ・ 品牌合作</div>
+      <p>快打旋風「打車關」反過來：限時把髒車打到發亮。8 位角色各有專屬必殺，4 關（車庫、夕陽洗車站、雨夜、飛天電動車），開場動畫、官方商品照、桌墊出招表、排行榜。</p>
+      <div class="grid">
+        <figure><img src="examples/shots/hjaec_opening.png" alt="開場標題" loading="lazy"><figcaption>開場動畫：一道光把髒車擦亮，標題落下</figcaption></figure>
+        <figure><img src="examples/shots/hjaec_select.png" alt="選角畫面" loading="lazy"><figcaption>選角：8 位角色、能力與指令</figcaption></figure>
+        <figure><img src="examples/shots/hjaec_boss.png" alt="巨輪的魚雷衝刺" loading="lazy"><figcaption>逐格動作：巨輪的紅色魚雷衝刺</figcaption></figure>
+        <figure><img src="examples/shots/hjaec_flying_car.png" alt="飛天電動車" loading="lazy"><figcaption>最終關：飛天電動車，要跳起來打</figcaption></figure>
+        <figure><img src="examples/shots/hjaec_products.png" alt="開場商品" loading="lazy"><figcaption>開場商品卡（官方商品照）</figcaption></figure>
+        <figure><img src="examples/shots/hjaec_result.png" alt="結算畫面" loading="lazy"><figcaption>結算：評價與本關登場商品</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="game">
+      <h3><a href="https://pokemonida99.github.io/bullets-fly/">讓子彈飛：鵝城快打</a></h3>
+      <div class="tags">橫向清版 ・ 改編電影 ・ 多結局</div>
+      <p>騎馬劫火車序章、鵝城街道清版、鴻門宴過場、夜襲縣衙、碉樓決戰；造型與台詞照原作劇本，每位兄弟有不同特點（遠距離、霸體、反擊）。</p>
+      <div class="grid"><figure><img src="examples/shots/bullets_fly.png" alt="讓子彈飛遊戲畫面" loading="lazy"><figcaption>關卡、過場插圖與結局</figcaption></figure></div>
+    </div>
+
+    <div class="game">
+      <h3><a href="template/">沙包練習場（範本）</a></h3>
+      <div class="tags">最小可玩範例 ・ 新專案從這裡複製</div>
+      <p>30 秒內打爆越多沙包越好。示範走路、跑步、跳、蹲、拳腳、飛彈、迴旋、打擊停頓、粒子、暫停、版本與更新紀錄、桌墊出招表。</p>
+      <div class="grid">
+        <figure><img src="examples/shots/template_title.png" alt="範本標題" loading="lazy"><figcaption>標題（版本號、↑ 更新紀錄）</figcaption></figure>
+        <figure><img src="examples/shots/template_play.png" alt="範本遊戲中" loading="lazy"><figcaption>遊戲中：打沙包、飛彈、連擊</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>流程<small>SKILL.md 的 0～7</small></h2>
+    <div class="steps">
+      <div class="step"><b>開工前問清楚</b><span>玩法、角色來源、原作／品牌規則、上線前要不要先問</span></div>
+      <div class="step"><b>企劃</b><span>角色表（能力、三招必殺、指令）、關卡表、台詞出處</span></div>
+      <div class="step"><b>GPT 美術</b><span>頭像、動作表 A 移動／B 普攻／C 必殺／D 走跑、背景、道具</span></div>
+      <div class="step"><b>切圖打包</b><span>slice.py 去背、分格、對齊腳底；stage_art.py 背景與頭像</span></div>
+      <div class="step"><b>遊戲引擎</b><span>從範本起手：狀態機、打擊感、HUD、桌墊、防誤觸</span></div>
+      <div class="step"><b>音樂音效</b><span>WebAudio 音序器：每個場景一首、每個動作有音效</span></div>
+      <div class="step"><b>測試</b><span>手動推進格數、截圖、自動遊玩 bot 調難度、全流程</span></div>
+      <div class="step"><b>上線</b><span>GitHub Pages、?v= 防快取、版本號與更新紀錄</span></div>
+    </div>
+    <div class="pipe">
+      <figure style="margin:0"><img src="examples/shots/pipeline_1_gpt_sheet.png" alt="GPT 畫的動作表" loading="lazy"><figcaption style="font-size:12px;color:var(--dim)">GPT 畫的動作表（洋紅底、4×2 格）</figcaption></figure>
+      <div class="arrow">➜</div>
+      <figure style="margin:0"><img src="examples/shots/pipeline_2_frames.png" alt="切好的走路跑步格" loading="lazy"><figcaption style="font-size:12px;color:var(--dim)">slice.py 切好、對齊腳底的走路與跑步格</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>安裝成 skill</h2>
+<pre>git clone https://github.com/pokemonida99/arcade-game-maker.git
+ln -s "$PWD/arcade-game-maker" ~/.claude/skills/arcade-game-maker</pre>
+    <p class="sub">之後跟 Claude 說「做一款街機風的小遊戲」「橫向清版」「快打風的獎勵關」，就會照這套流程做。</p>
+    <h2>交付前一定檢查</h2>
+    <ul class="check">
+      <li>改編作品的造型、台詞、年代照原作；真人照片只當參考，臉畫成原創像素臉</li>
+      <li>經典招式「像但不一樣」，每個角色的招式與特點真的不同</li>
+      <li>角色是逐格動作圖、背景是整張像素畫；生成圖逐張檢查多手多指</li>
+      <li>防誤觸放大與選取；標題有版本號、遊戲內看得到更新紀錄</li>
+      <li>不做每日登入、儲值、等時間；上線前先問</li>
+    </ul>
+  </section>
+</main>
+<footer>arcade-game-maker ・ 程式 MIT ・ 字型 俐方體 11 號（OFL）</footer>
+</body>
+</html>
